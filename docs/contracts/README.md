@@ -13,6 +13,10 @@ The verifier is executable fictional evidence only. It is not production-ready, 
 - `docs/pipeline-run-contract.md` — D1 auditable run contract.
 - `docs/output-contracts.md` — validator output contracts.
 
+## Proposed inactive contracts
+
+- `docs/contracts/newsletter-publication-boundary-contract-v0.md` — contract-only draft for a future canonical-record to authorized newsletter pipeline. It is unimplemented, runtime-inactive, and grants no publication authority.
+
 ## Accepted architecture and inactive draft contracts
 
 Calendar-only architecture and retained contracts:
