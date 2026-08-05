@@ -1,7 +1,12 @@
 import json
 from pathlib import Path
 
-from tools.generate_newsletter import publication_safe, render_newsletter
+from tools.generate_newsletter import (
+    enforce_cli_batch_admission_guard,
+    main,
+    publication_safe,
+    render_newsletter,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,3 +83,67 @@ def test_rendering_is_deterministic_readable_and_non_empty():
     assert first.encode("utf-8") == second.encode("utf-8")
     assert first.startswith("# 虛構活動通訊草稿\n")
     assert len(first.splitlines()) > 20
+
+
+def test_cli_batch_guard_accepts_only_complete_safe_batch():
+    safe_records = [record for record in load_fixture() if publication_safe(record)]
+
+    assert enforce_cli_batch_admission_guard(safe_records) is None
+
+
+def test_cli_batch_guard_rejects_mixed_empty_and_non_array_inputs():
+    records = load_fixture()
+
+    for invalid in (records, [], {"records": records}):
+        try:
+            enforce_cli_batch_admission_guard(invalid)
+        except ValueError as exc:
+            assert str(exc)
+        else:
+            raise AssertionError("inadmissible CLI batch was accepted")
+
+
+def test_cli_rejection_does_not_create_or_overwrite_output(tmp_path, capsys):
+    input_path = tmp_path / "mixed.json"
+    output_path = tmp_path / "newsletter.md"
+    input_path.write_text(json.dumps(load_fixture()), encoding="utf-8")
+    output_path.write_text("existing approved artifact\n", encoding="utf-8")
+
+    assert main([str(input_path), str(output_path)]) == 1
+    assert output_path.read_text(encoding="utf-8") == "existing approved artifact\n"
+    assert "CLI batch rejected by temporary guard" in capsys.readouterr().err
+
+
+def test_cli_malformed_json_does_not_overwrite_output(tmp_path, capsys):
+    input_path = tmp_path / "malformed.json"
+    output_path = tmp_path / "newsletter.md"
+    input_path.write_text("[", encoding="utf-8")
+    output_path.write_text("existing approved artifact\n", encoding="utf-8")
+
+    assert main([str(input_path), str(output_path)]) == 1
+    assert output_path.read_text(encoding="utf-8") == "existing approved artifact\n"
+    assert "ERROR:" in capsys.readouterr().err
+
+
+def test_cli_render_failure_does_not_overwrite_output(tmp_path, capsys):
+    input_path = tmp_path / "approved-but-unrenderable.json"
+    output_path = tmp_path / "newsletter.md"
+    input_path.write_text(
+        json.dumps([{"qa_status": "approved", "uncertain_fields": []}]),
+        encoding="utf-8",
+    )
+    output_path.write_text("existing approved artifact\n", encoding="utf-8")
+
+    assert main([str(input_path), str(output_path)]) == 1
+    assert output_path.read_text(encoding="utf-8") == "existing approved artifact\n"
+    assert "publication-safe record must have" in capsys.readouterr().err
+
+
+def test_cli_writes_output_after_safe_batch_passes_guard(tmp_path):
+    safe_records = [record for record in load_fixture() if publication_safe(record)]
+    input_path = tmp_path / "approved.json"
+    output_path = tmp_path / "newsletter.md"
+    input_path.write_text(json.dumps(safe_records), encoding="utf-8")
+
+    assert main([str(input_path), str(output_path)]) == 0
+    assert output_path.read_text(encoding="utf-8").startswith("# 虛構活動通訊草稿\n")

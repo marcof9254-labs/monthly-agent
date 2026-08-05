@@ -43,6 +43,31 @@ def publication_safe(record) -> bool:
     )
 
 
+def enforce_cli_batch_admission_guard(records) -> None:
+    """Reject a CLI input batch unless every record passes the temporary guard."""
+    # Necessary but not sufficient for publication: this temporary guard is
+    # not canonical schema admission or consumer-scoped newsletter eligibility.
+    if not isinstance(records, list):
+        raise ValueError("CLI batch input must be a JSON array of activity records")
+    if not records:
+        raise ValueError("CLI batch input must contain at least one activity record")
+
+    blocked = []
+    for index, record in enumerate(records):
+        if publication_safe(record):
+            continue
+        activity_id = record.get("activity_id") if isinstance(record, dict) else None
+        label = activity_id if _text(activity_id) is not None else f"record[{index}]"
+        blocked.append(str(label))
+
+    if blocked:
+        raise ValueError(
+            "CLI batch rejected by temporary guard: every record must have "
+            "qa_status='approved' "
+            "and uncertain_fields=[]; blocked records: " + ", ".join(blocked)
+        )
+
+
 def render_newsletter(records) -> str:
     if not isinstance(records, list):
         raise ValueError("input must be a JSON array of activity records")
@@ -102,7 +127,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         records = load_records(args.input_json)
-        write_deterministic(args.output_markdown, render_newsletter(records))
+        enforce_cli_batch_admission_guard(records)
+        content = render_newsletter(records)
+        write_deterministic(args.output_markdown, content)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
