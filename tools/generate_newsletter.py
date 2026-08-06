@@ -35,7 +35,10 @@ def _fees(items) -> str | None:
     return "；".join(rendered) or None
 
 
-def publication_safe(record) -> bool:
+def meets_temporary_record_guard(record) -> bool:
+    """Return whether a record passes the mechanical prototype guard."""
+    # Necessary but not sufficient for publication: this temporary guard is
+    # not canonical schema admission or consumer-scoped newsletter eligibility.
     return (
         isinstance(record, dict)
         and record.get("qa_status") == "approved"
@@ -43,36 +46,51 @@ def publication_safe(record) -> bool:
     )
 
 
-def enforce_cli_batch_admission_guard(records) -> None:
-    """Reject a CLI input batch unless every record passes the temporary guard."""
-    # Necessary but not sufficient for publication: this temporary guard is
-    # not canonical schema admission or consumer-scoped newsletter eligibility.
+def _record_label(record, index: int) -> str:
+    activity_id = record.get("activity_id") if isinstance(record, dict) else None
+    return activity_id if _text(activity_id) is not None else f"record[{index}]"
+
+
+def _exclusion_reasons(record) -> tuple[str, ...]:
+    if not isinstance(record, dict):
+        return ("record is not an object",)
+
+    reasons = []
+    if record.get("qa_status") != "approved":
+        reasons.append("qa_status is not 'approved'")
+    if record.get("uncertain_fields") != []:
+        reasons.append("uncertain_fields is not []")
+    return tuple(reasons)
+
+
+def partition_records_by_temporary_guard(records):
+    """Partition records into qualifying records and explicit exclusions."""
     if not isinstance(records, list):
-        raise ValueError("CLI batch input must be a JSON array of activity records")
+        raise ValueError("input must be a JSON array of activity records")
     if not records:
-        raise ValueError("CLI batch input must contain at least one activity record")
+        raise ValueError("input must contain at least one activity record")
 
-    blocked = []
+    qualifying = []
+    excluded = []
     for index, record in enumerate(records):
-        if publication_safe(record):
-            continue
-        activity_id = record.get("activity_id") if isinstance(record, dict) else None
-        label = activity_id if _text(activity_id) is not None else f"record[{index}]"
-        blocked.append(str(label))
+        if meets_temporary_record_guard(record):
+            qualifying.append(record)
+        else:
+            excluded.append((_record_label(record, index), _exclusion_reasons(record)))
+    return qualifying, excluded
 
-    if blocked:
-        raise ValueError(
-            "CLI batch rejected by temporary guard: every record must have "
-            "qa_status='approved' "
-            "and uncertain_fields=[]; blocked records: " + ", ".join(blocked)
-        )
+
+def _report_exclusions(excluded) -> None:
+    for label, reasons in excluded:
+        print(f"WITHHELD: {label}: {'; '.join(reasons)}", file=sys.stderr)
 
 
 def render_newsletter(records) -> str:
-    if not isinstance(records, list):
-        raise ValueError("input must be a JSON array of activity records")
+    qualifying_records, excluded = partition_records_by_temporary_guard(records)
+    _report_exclusions(excluded)
+    if not qualifying_records:
+        raise ValueError("nothing publishable: all input records were withheld")
 
-    safe_records = [record for record in records if publication_safe(record)]
     lines = [
         "# 虛構活動通訊草稿",
         "",
@@ -80,7 +98,15 @@ def render_newsletter(records) -> str:
         "",
     ]
 
-    for record in safe_records:
+    if excluded:
+        lines.extend(
+            [
+                f"> 注意：本次輸入有 {len(excluded)} 項活動未獲納入。產生工具已報告每項排除原因。",
+                "",
+            ]
+        )
+
+    for record in qualifying_records:
         title = _text(record.get("activity_title"))
         activity_id = _text(record.get("activity_id"))
         if title is None or activity_id is None:
@@ -127,7 +153,6 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         records = load_records(args.input_json)
-        enforce_cli_batch_admission_guard(records)
         content = render_newsletter(records)
         write_deterministic(args.output_markdown, content)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
