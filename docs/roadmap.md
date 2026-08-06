@@ -8,6 +8,8 @@ D4A completed the contract-only evidence boundary for a possible future, separat
 
 D4A is non-activating. It does not execute a shadow run, authorize real-data processing, activate BR-006, modify the active registry, alter R03, grant record approval or downstream authority, or authorize Phase 2. D4B — Bounded Shadow Execution is `PAUSED / BACKLOG / NOT AUTHORIZED`; re-entry requires a fresh separate Owner milestone selection and authorization. D3 syntax validity and D3 no-finding remain non-authorizing; bare top-level markers remain outside D3 adjudication authority.
 
+The G0.2 exact-head mechanical shadow workflow ran from PR #37 on `2026-07-20` until its trigger was retired in this PR. Its one-time milestone allowlist was never generalized, so it produced false-failure signals on subsequent PRs #38 and #39 without affecting actual merge eligibility because no branch-protection rule referenced the check. The automatic trigger has been retired and not replaced; this factual closure grants no new milestone, activation, or scope.
+
 ## OAR closure
 
 The Bounded Calendar Authority Chain v0 architecture is frozen. PR #18 completed and merged the accepted OAR contracts, inactive Draft 0.x schemas, and fictional authority/revocation fixtures. PR #19 completed and merged the independently reviewed fictional year-2099 offline verifier prototype. PR #21 completed Phase 1A deterministic verifier core hardening. Production operation and activation remain outside all three merges.
