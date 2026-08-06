@@ -8,6 +8,8 @@ D4A remains non-activating: it does not execute a shadow run, authorize real-dat
 
 ## Governance publication
 
+The G0.2 exact-head mechanical shadow workflow ran from PR #37 on `2026-07-20` until its trigger was retired in this PR. Its one-time milestone allowlist was never generalized, so it produced false-failure signals on subsequent PRs #38 and #39 without affecting actual merge eligibility because no branch-protection rule referenced the check. The automatic trigger has been retired and not replaced; this factual closure grants no new milestone, activation, or scope.
+
 `OD-REVIEW-POLICY-001` became repository-effective when PR #23 merged as `fb09d2ea547615a70299986608dba9f459c1e544` at `2026-07-17T01:40:28Z`.
 
 `OD-REVIEW-EVIDENCE-002` — Review Evidence and Factual-Gate Procedures became repository-effective when PR #24 merged at `2026-07-17T05:47:09Z` through true merge commit `cd30a42bde387b66df0f99e117d7c2fd57b16b88`. Its first parent is `fb09d2ea547615a70299986608dba9f459c1e544`; exact doubly reviewed head `9443dd0fc1624b3853cfc7ffbb3a941b4498bf11` is its second parent. The reviewed-head tree and merge tree were verified equal, and exactly `docs/current-status.md`, `docs/decisions.md`, `docs/governance.md`, and `docs/roadmap.md` landed.
