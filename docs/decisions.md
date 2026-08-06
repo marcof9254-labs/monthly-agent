@@ -304,3 +304,47 @@ These owner decisions accept architecture direction only. They do not accept or 
 `OD-BAI-ARCH-001` is accepted with owner changes. Production resolution must receive exactly one external trust anchor and one self-contained verified resolution bundle. The trust anchor binds the authorized `snapshot_id` and complete snapshot artifact digest for one logical `registry_id` and exact scope. A valid internal digest cannot prove that a snapshot is the currently authorized tip; stale-snapshot and rollback detection depend on the independently supplied anchor.
 
 `OD-BAI-CONTRACT-001` approves drafting the inactive Gate 2 contracts and draft `0.x` schemas. It does not accept executable schemas, implementation, real run metadata authority, real authority or decision issuance, registry publication, downstream activation, BR-006 activation, or D3 resolution.
+
+## ADR-008: Newsletter Publication Boundary Contract v0 Owner Acceptance
+
+Status: Accepted architecture boundary
+
+### Decision
+
+Accept Newsletter Publication Boundary Contract v0 as the normative architecture boundary.
+
+```text
+Accepted artifact:
+docs/contracts/newsletter-publication-boundary-contract-v0.md
+
+Accepted exact head:
+cfef8a8fae74cd628f085022287683d597bc38cf
+
+Authority:
+MarcoF9254
+
+Acceptance-event timestamp:
+Not independently timestamped in repository-native evidence.
+
+Repository attestation recorded:
+2026-08-06T09:45:00+08:00
+
+Scope:
+Architecture boundary only.
+```
+
+This decision entry records an already-existing external Owner-authority acceptance event that was summarized in the project handoff. It is not a new acceptance of modified parent bytes. The accepted parent artifact remains byte-for-byte bound to the exact head above; the durable repository-native attestation records the later append-only governance event without modifying that artifact.
+
+### Explicit non-authorizations
+
+The acceptance did not authorize:
+
+- runtime implementation;
+- production publication;
+- real-data processing;
+- PR creation;
+- Ready transition;
+- merge;
+- main mutation.
+
+It also did not authorize schema activation, production destination access, or production activation.

@@ -8,16 +8,18 @@ The prototype verifies RFC 8785/SHA-256 bindings, a separately supplied fictiona
 
 The verifier is executable fictional evidence only. It is not production-ready, does not activate any Draft 0.x schema, and does not implement operational trust-anchor delivery, real registry publication, or real authority issuance.
 
-## Active contracts
+## Active implemented contracts
 
 - `docs/pipeline-run-contract.md` — D1 auditable run contract.
 - `docs/output-contracts.md` — validator output contracts.
 
 ## Proposed inactive contracts
 
-- `docs/contracts/newsletter-publication-boundary-contract-v0.md` — contract-only draft for a future canonical-record to authorized newsletter pipeline. It is unimplemented, runtime-inactive, and grants no publication authority.
+- `docs/contracts/newsletter-fixture-publication-admission-contract-v0.md` — Draft revision 3 fixture-first architecture contract proposed for bounded closure review. It is not Owner-accepted, not implemented, runtime-inactive, and grants no runtime or production publication authority.
 
-## Accepted architecture and inactive draft contracts
+## Accepted inactive architecture contracts
+
+- `docs/contracts/newsletter-publication-boundary-contract-v0.md` — Owner-accepted as a normative architecture boundary at exact head `cfef8a8fae74cd628f085022287683d597bc38cf`. It is not implemented, is not runtime-active, and does not authorize production activation.
 
 Calendar-only architecture and retained contracts:
 
