@@ -187,12 +187,14 @@ def test_main_advanced_and_diverged(merged_repo, monkeypatch):
     "origin/main",
     "refs/heads/bad..name",
     "refs/heads/bad\x01name",
+    "refs/heads/bad\x00name",
 ])
 def test_main_ref_rejects_non_ref_and_revision_forms(tmp_path, main_ref):
     value = envelope("a" * 40, "b" * 40, "c" * 40, main_ref=main_ref)
     result = run_tool(tmp_path, value)
     assert result.returncode == 2
     assert json.loads(result.stdout)["overall_status"] == "INVALID"
+    assert result.stderr == ""
 
 
 def test_exact_named_ref_resolution_and_missing_ref(merged_repo, monkeypatch):

@@ -44,7 +44,7 @@ def _valid_path(path: Any) -> bool:
 
 
 def _valid_full_ref(ref: Any) -> bool:
-    if not isinstance(ref, str) or not ref.startswith("refs/"):
+    if not isinstance(ref, str) or not ref.startswith("refs/") or "\x00" in ref:
         return False
     try:
         result = subprocess.run(
