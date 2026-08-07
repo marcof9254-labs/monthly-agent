@@ -174,6 +174,98 @@ def test_main_advanced_and_diverged(merged_repo, monkeypatch):
     assert diverged["reason"] == "main_ref_mismatch"
 
 
+@pytest.mark.parametrize("main_ref", [
+    None,
+    "",
+    "a" * 40,
+    "abcdef0",
+    "HEAD",
+    "HEAD~1",
+    "HEAD^",
+    "HEAD@{1}",
+    "main",
+    "origin/main",
+    "refs/heads/bad..name",
+    "refs/heads/bad\x01name",
+])
+def test_main_ref_rejects_non_ref_and_revision_forms(tmp_path, main_ref):
+    value = envelope("a" * 40, "b" * 40, "c" * 40, main_ref=main_ref)
+    result = run_tool(tmp_path, value)
+    assert result.returncode == 2
+    assert json.loads(result.stdout)["overall_status"] == "INVALID"
+
+
+def test_exact_named_ref_resolution_and_missing_ref(merged_repo, monkeypatch):
+    path, base, reviewed, merge = merged_repo
+    monkeypatch.chdir(path)
+    git(path, "update-ref", "refs/heads/proof-main", merge)
+    exact = gate.evaluate(envelope(base, reviewed, merge, main_ref="refs/heads/proof-main"))
+    missing = gate.evaluate(envelope(base, reviewed, merge, main_ref="refs/heads/missing"))
+    assert exact["checks"]["main_binding"]["status"] == "PASS"
+    assert exact["checks"]["main_binding"]["observed_main"] == merge
+    assert missing["checks"]["main_binding"]["status"] == "FAIL"
+    assert missing["checks"]["main_binding"]["observed_main"] is None
+
+
+def test_valid_refs_to_descendant_and_other_commit_fail(merged_repo, monkeypatch):
+    path, base, reviewed, merge = merged_repo
+    monkeypatch.chdir(path)
+    write(path, "after.txt", "after\n")
+    descendant = commit(path, "after")
+    git(path, "update-ref", "refs/heads/other", reviewed)
+    advanced = gate.evaluate(envelope(base, reviewed, merge, main_ref="refs/heads/main"))
+    other = gate.evaluate(envelope(base, reviewed, merge, main_ref="refs/heads/other"))
+    assert descendant != merge
+    assert advanced["checks"]["main_binding"]["status"] == "FAIL"
+    assert advanced["checks"]["main_binding"]["observed_main"] == descendant
+    assert other["checks"]["main_binding"]["status"] == "FAIL"
+    assert other["checks"]["main_binding"]["observed_main"] == reviewed
+
+
+def test_repository_mismatch_fails_closed(merged_repo, monkeypatch):
+    path, base, reviewed, merge = merged_repo
+    monkeypatch.chdir(path)
+    value = envelope(base, reviewed, merge)
+    value["repository"] = "different/repository"
+    result = gate.evaluate(value)
+    assert result["overall_status"] == "FAIL"
+    assert result["checks"]["repository_identity"]["status"] == "FAIL"
+
+
+def test_octopus_merge_fails_exact_two_parent_topology(merged_repo, monkeypatch):
+    path, base, reviewed, _ = merged_repo
+    monkeypatch.chdir(path)
+    git(path, "checkout", "-q", "--orphan", "third")
+    git(path, "rm", "-rf", ".")
+    write(path, "third.txt", "third\n")
+    third = commit(path, "third")
+    tree = git(path, "rev-parse", f"{reviewed}^{{tree}}")
+    octopus = subprocess.run(
+        ["git", "commit-tree", tree, "-p", base, "-p", reviewed, "-p", third, "-m", "octopus"],
+        cwd=path, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    git(path, "update-ref", "refs/heads/main", octopus)
+    result = gate.evaluate(envelope(base, reviewed, octopus))
+    assert result["overall_status"] == "FAIL"
+    assert result["checks"]["merge_topology"]["status"] == "FAIL"
+    assert result["checks"]["merge_topology"]["parent_count"] == 3
+
+
+def test_swapped_parent_order_fails_c5_and_c6(merged_repo, monkeypatch):
+    path, base, reviewed, _ = merged_repo
+    monkeypatch.chdir(path)
+    tree = git(path, "rev-parse", f"{reviewed}^{{tree}}")
+    swapped = subprocess.run(
+        ["git", "commit-tree", tree, "-p", reviewed, "-p", base, "-m", "swapped"],
+        cwd=path, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    git(path, "update-ref", "refs/heads/main", swapped)
+    result = gate.evaluate(envelope(base, reviewed, swapped))
+    assert result["overall_status"] == "FAIL"
+    assert result["checks"]["first_parent_binding"]["status"] == "FAIL"
+    assert result["checks"]["second_parent_binding"]["status"] == "FAIL"
+
+
 def test_missing_history_and_unknown_diff_status_fail_closed(merged_repo, monkeypatch):
     path, base, reviewed, merge = merged_repo
     monkeypatch.chdir(path)

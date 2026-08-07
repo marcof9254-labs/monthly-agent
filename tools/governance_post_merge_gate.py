@@ -43,6 +43,19 @@ def _valid_path(path: Any) -> bool:
     return ".." not in parts and "." not in parts and "//" not in path
 
 
+def _valid_full_ref(ref: Any) -> bool:
+    if not isinstance(ref, str) or not ref.startswith("refs/"):
+        return False
+    try:
+        result = subprocess.run(
+            ["git", "check-ref-format", ref], check=False,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
 def validate_input(value: Any) -> list[str]:
     required = {
         "version", "repository", "merge_commit", "expected_base",
@@ -72,8 +85,8 @@ def validate_input(value: Any) -> list[str]:
             errors.append("expected_landed_paths must contain normalized repository-relative Git paths")
         if all(isinstance(path, str) for path in paths) and len(paths) != len(set(paths)):
             errors.append("expected_landed_paths must not contain duplicates")
-    if not isinstance(value.get("main_ref"), str) or not value.get("main_ref") or "\x00" in value.get("main_ref", ""):
-        errors.append("main_ref must be a non-empty string")
+    if not _valid_full_ref(value.get("main_ref")):
+        errors.append("main_ref must be a valid full Git ref beginning with refs/")
     return sorted(errors)
 
 
@@ -102,6 +115,16 @@ def _resolve(arguments: list[str]) -> str | None:
     except GitFailure:
         return None
     return observed.lower() if SHA_RE.fullmatch(observed) else None
+
+
+def _resolve_exact_ref(ref: str) -> str | None:
+    try:
+        object_id = str(_git(["show-ref", "--verify", "--hash", ref])).strip()
+    except GitFailure:
+        return None
+    if not SHA_RE.fullmatch(object_id):
+        return None
+    return _resolve(["--verify", f"{object_id}^{{commit}}"])
 
 
 def _is_ancestor(base: str, head: str) -> bool:
@@ -185,7 +208,7 @@ def evaluate(value: dict[str, Any]) -> dict[str, Any]:
     missing = sorted(set(expected_paths) - set(landed)) if landed_available else expected_paths
     checks["landed_scope"] = {"status": "PASS" if landed_available and not extra and not missing else "FAIL", "observed": landed, "expected": expected_paths, "extra": extra, "missing": missing}
 
-    observed_main = _resolve([value["main_ref"]])
+    observed_main = _resolve_exact_ref(value["main_ref"])
     main_check: dict[str, Any] = {"status": "FAIL", "observed_main": observed_main}
     if observed_main == merge and merge is not None:
         main_check["status"] = "PASS"
